@@ -1,3 +1,15 @@
+/* -*- C -*- 
+ Copyright (c) 2017 Contact Software.
+
+ All rights reserved. This program and the accompanying materials are
+ made available under the terms of the Eclipse Public License v1.0.
+
+ The Eclipse Public License is available at 
+     http://www.eclipse.org/legal/epl-v10.html
+*/
+
+#include "ppmp.h"
+
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -14,156 +26,156 @@ int fwrite_wrap(void *user_data, const char *buf, int len) {
   return (int) fwrite(buf, len, 1, (FILE*) user_data);
 }
 
-int json_init(JSON *json, void *user_data, write_func f_write, int flags) {
-  json->user_data = user_data;
-  json->join = 0;
-  json->flags = flags;
+int ppmp_init(PPMP *ppmp, void *user_data, ppmp_write_func f_write, int flags) {
+  ppmp->user_data = user_data;
+  ppmp->join = 0;
+  ppmp->flags = flags;
   if (f_write == 0) {
-    json->user_data = (void*) stdout;
+    ppmp->user_data = (void*) stdout;
     f_write = fwrite_wrap;
   }
-  json->f_write = f_write;
-  json->stackp = 0;
+  ppmp->f_write = f_write;
+  ppmp->stackp = 0;
   return 0;
 }
 
-int json_push(JSON *json, char c) {
-  if (json->stackp < JSON_STACK_SIZE) {
-    json->stack[json->stackp++] = c;
+int ppmp_push(PPMP *ppmp, char c) {
+  if (ppmp->stackp < PPMP_STACK_SIZE) {
+    ppmp->stack[ppmp->stackp++] = c;
     return 0;
   }
   return -1;
 }
 
-char json_pop(JSON *json) {
-  if (json->stackp > 0) {
-    return json->stack[--json->stackp];
+char ppmp_pop(PPMP *ppmp) {
+  if (ppmp->stackp > 0) {
+    return ppmp->stack[--ppmp->stackp];
   }
   return 0;
 }
 
-int json_writez(JSON *json, const char *buf) {
-  return json->f_write(json->user_data, buf, strlen(buf));
+int ppmp_writez(PPMP *ppmp, const char *buf) {
+  return ppmp->f_write(ppmp->user_data, buf, strlen(buf));
 }
 
-int json_writen(JSON *json, ...) {
+int ppmp_writen(PPMP *ppmp, ...) {
   va_list vargs;
   const char *buf;
-  va_start(vargs, json);
+  va_start(vargs, ppmp);
   buf = va_arg(vargs, const char*);
   while (buf) {
-    json_writez(json, buf);
+    ppmp_writez(ppmp, buf);
     buf = va_arg(vargs, const char*);
   }
   va_end(vargs);
   return 0;
 }
 
-int json_string(JSON *json, const char *str) {
-  return json_writen(json, "\"", str, "\"", 0);
+int ppmp_string(PPMP *ppmp, const char *str) {
+  return ppmp_writen(ppmp, "\"", str, "\"", 0);
 }
 
-int json_join(JSON *json) {
+int ppmp_join(PPMP *ppmp) {
   char buf[3] = "  ";
-  if (json->join) {
-    buf[0] = json->join;
-    json_writez(json, buf);
+  if (ppmp->join) {
+    buf[0] = ppmp->join;
+    ppmp_writez(ppmp, buf);
   }
   return 0;
 }
 
-int json_property(JSON *json, const char *name) {
-  json_join(json);
-  if (json->flags & JSON_PRETTY) {
+int ppmp_property(PPMP *ppmp, const char *name) {
+  ppmp_join(ppmp);
+  if (ppmp->flags & PPMP_PRETTY) {
     int i;
-    json_writez(json, "\n");
-    for (i = 0; i < json->stackp; i++) {
-      json_writez(json, "  ");
+    ppmp_writez(ppmp, "\n");
+    for (i = 0; i < ppmp->stackp; i++) {
+      ppmp_writez(ppmp, "  ");
     }
   }
-  json_string(json, name);
-  json_writez(json, ": ");
-  json->join = ',';
+  ppmp_string(ppmp, name);
+  ppmp_writez(ppmp, ": ");
+  ppmp->join = ',';
   return 0;
 }
 
-int json_object(JSON *json, ...) {
-  json->join = 0;
-  json_writez(json, "{");
-  json_push(json, '}');
+int ppmp_object(PPMP *ppmp, ...) {
+  ppmp->join = 0;
+  ppmp_writez(ppmp, "{");
+  ppmp_push(ppmp, '}');
   return 0;
 }
 
-int json_list(JSON *json, ...) {
-  json->join = 0;
-  json_writez(json, "[");
-  json_push(json, ']');
+int ppmp_list(PPMP *ppmp, ...) {
+  ppmp->join = 0;
+  ppmp_writez(ppmp, "[");
+  ppmp_push(ppmp, ']');
   return 0;
 }
 
-int json_end(JSON *json) {
+int ppmp_end(PPMP *ppmp) {
   char buf[2] = " ";
-  char c = json_pop(json);
+  char c = ppmp_pop(ppmp);
   int i;
-  if (json->flags & JSON_PRETTY) {
-    json_writez(json, "\n");
-    for (i = 0; i < json->stackp; i++) {
-      json_writez(json, "  ");
+  if (ppmp->flags & PPMP_PRETTY) {
+    ppmp_writez(ppmp, "\n");
+    for (i = 0; i < ppmp->stackp; i++) {
+      ppmp_writez(ppmp, "  ");
     }
   }
   buf[0] = c;
-  json_writez(json, buf);
-  json->join = ',';
+  ppmp_writez(ppmp, buf);
+  ppmp->join = ',';
   return 0;
 }
 
-int ppmp_measurement_payload(JSON *json) {
-  json_object(json);
-  json_property(json, "content-spec");
-  json_string(json, "urn:spec://eclipse.org/unide/measurement-message#v2");
+int ppmp_measurement_payload(PPMP *ppmp) {
+  ppmp_object(ppmp);
+  ppmp_property(ppmp, "content-spec");
+  ppmp_string(ppmp, "urn:spec://eclipse.org/unide/measurement-message#v2");
   return 0;
 }
 
 
-#define EMIT_PROPERTY(JSON, NAME)		\
+#define EMIT_PROPERTY(PPMP, NAME)		\
   if (NAME) {					\
-     json_property(JSON, #NAME);		\
-     json_string(JSON, NAME);			\
+     ppmp_property(PPMP, #NAME);		\
+     ppmp_string(PPMP, NAME);			\
   }
 
 
-int ppmp_vmeta(JSON *json, va_list args) {
+int ppmp_vmeta(PPMP *ppmp, va_list args) {
   const char *key, *value;
   key = va_arg(args, const char*);
   if (key) {
-    json_property(json, "metaData");
-    json_object(json);
+    ppmp_property(ppmp, "metaData");
+    ppmp_object(ppmp);
     while (key) {
       value = va_arg(args, const char*);
-      json_property(json, key);
-      json_string(json, value);
+      ppmp_property(ppmp, key);
+      ppmp_string(ppmp, value);
       key = va_arg(args, const char*);
     }
-    json_end(json);
+    ppmp_end(ppmp);
   }
   return 0;
 }
 
-int ppmp_device(JSON *json, const char *deviceID,
+int ppmp_device(PPMP *ppmp, const char *deviceID,
 		const char *operationalStatus, ...) {
   va_list args;
   va_start(args, operationalStatus);
-  json_property(json, "device");
-  json_object(json);
-    EMIT_PROPERTY(json, deviceID);
-    EMIT_PROPERTY(json, operationalStatus);
-    ppmp_vmeta(json, args);
-  json_end(json);
+  ppmp_property(ppmp, "device");
+  ppmp_object(ppmp);
+    EMIT_PROPERTY(ppmp, deviceID);
+    EMIT_PROPERTY(ppmp, operationalStatus);
+    ppmp_vmeta(ppmp, args);
+  ppmp_end(ppmp);
   va_end(args);
   return 0;
 }
 
-int ppmp_part(JSON *json,
+int ppmp_part(PPMP *ppmp,
 	      const char *partTypeID,
 	      const char *partID,
 	      const char *result,
@@ -171,128 +183,74 @@ int ppmp_part(JSON *json,
 	      ...) {
   va_list args;
   va_start(args, code);
-  json_property(json, "part");
-  json_object(json);
-    EMIT_PROPERTY(json, partTypeID);
-    EMIT_PROPERTY(json, partID);
-    EMIT_PROPERTY(json, result);
-    EMIT_PROPERTY(json, code);
-    ppmp_vmeta(json, args);
-  json_end(json);
+  ppmp_property(ppmp, "part");
+  ppmp_object(ppmp);
+    EMIT_PROPERTY(ppmp, partTypeID);
+    EMIT_PROPERTY(ppmp, partID);
+    EMIT_PROPERTY(ppmp, result);
+    EMIT_PROPERTY(ppmp, code);
+    ppmp_vmeta(ppmp, args);
+  ppmp_end(ppmp);
   va_end(args);
   return 0;
 }
 
-int ppmp_measurements(JSON *json) {
-  json_property(json, "measurements");
-  json_list(json);
+int ppmp_measurements(PPMP *ppmp) {
+  ppmp_property(ppmp, "measurements");
+  ppmp_list(ppmp);
   return 0;
 }
 
-int ppmp_measurement(JSON *json,
+int ppmp_measurement(PPMP *ppmp,
 		     const char *ts,
 		     const char *result,
 		     const char *code) {
-  json_object(json);
-  EMIT_PROPERTY(json, ts);
-  EMIT_PROPERTY(json, result);
-  EMIT_PROPERTY(json, code);
-  json_property(json, "series");
-  json_object(json);
+  ppmp_object(ppmp);
+  EMIT_PROPERTY(ppmp, ts);
+  EMIT_PROPERTY(ppmp, result);
+  EMIT_PROPERTY(ppmp, code);
+  ppmp_property(ppmp, "series");
+  ppmp_object(ppmp);
   return 0;
 }
 
-int ppmp_offsets(JSON *json, int count, int *offsets) {
+int ppmp_offsets(PPMP *ppmp, int count, int *offsets) {
   int i;
   char buf[20];
-  json_property(json, "$_time");
-  json_list(json);
+  ppmp_property(ppmp, "$_time");
+  ppmp_list(ppmp);
   for (i = 0; i < count; i++) {
     if (i==0) {
       sprintf(buf, "%d", offsets[i]);
     } else {
       sprintf(buf, ", %d", offsets[i]);
     }
-    json_writez(json, buf);
+    ppmp_writez(ppmp, buf);
   }
-  json_end(json);
+  ppmp_end(ppmp);
   return 0;
 }
 
-int ppmp_samples(JSON *json, const char *name, int count, double *offsets) {
+int ppmp_samples(PPMP *ppmp, const char *name, int count, double *offsets) {
   int i;
   char buf[20];
-  json_property(json, name);
-  json_list(json);
+  ppmp_property(ppmp, name);
+  ppmp_list(ppmp);
   for (i = 0; i < count; i++) {
     if (i==0) {
       sprintf(buf, "%g", offsets[i]);
     } else {
       sprintf(buf, ", %g", offsets[i]);
     }
-    json_writez(json, buf);
+    ppmp_writez(ppmp, buf);
   }
-  json_end(json);
+  ppmp_end(ppmp);
   return 0;
 }
 
-int ppmp_finish(JSON *json) {
-  while (json->stackp) {
-    json_end(json);
+int ppmp_finish(PPMP *ppmp) {
+  while (ppmp->stackp) {
+    ppmp_end(ppmp);
   }
-  return 0;
-}
-
-int main(int argc, const char *argv[]) {
-  JSON jsonbuf;
-  JSON *json = &jsonbuf;
-  int i; 
-  json_init(json, NULL, NULL, JSON_PRETTY);
-
-  ppmp_measurement_payload(json);
-  ppmp_device(json, "a4927dad-58d4-4580-b460-79cefd56775b", NULL, NULL);
-
-  ppmp_measurements(json);
-  for (i = 0; i < 3; i++) {
-    ppmp_measurement(json, "2002-05-30T09:30:10.123+02:00", NULL, NULL);
-    {
-      int offsets[3] = {0, 22, 24};
-      double pressure[3] = {24.5, 42.231, 43.12};
-      ppmp_offsets(json, 1, offsets);
-      ppmp_samples(json, "pressure", 1, pressure);
-    }
-    json_end(json);
-  }
-  ppmp_finish(json);
-
-#if 0
-  ppmp_device(json,
-	      "a4927dad-58d4-4580-b460-79cefd56775b",
-	      "UP",
-	      "supplier", "Bosch",
-	      "lastMaintenance", "2017-08",
-	      NULL);
-
-  ppmp_part(json,
-	    "a4927dad-58d4-4580-b460-79cefd56775b",
-	    "UP",
-	    "supplier", "Bosch",
-	    "lastMaintenance", "2017-08",
-	    NULL);
-  json_property(json, "device");
-  json_object(json);
-  json_property(json, "deviceID");
-  json_string(json, "a4927dad-58d4-4580-b460-79cefd56775b");
-  json_property(json, "operationalStatus");
-  json_string(json, "UP");  
-  json_end(json);
-
-  json_property(json, "part");
-  json_object(json);
-  json_property(json, "partTypeID");
-  json_string(json, "FT0823498");
-  json_end(json);
-#endif
-  
   return 0;
 }
