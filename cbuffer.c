@@ -24,7 +24,7 @@ static void* std_realloc(void *p, size_t n, cbuffer_allocator *allocator) { retu
 static cbuffer_allocator std_mm = { std_free, std_malloc, std_realloc, 0};
 
 /* */
-#define CBUFPAGESIZE 1024 
+#define CBUFPAGESIZE 1024
 
 void cbuffer_create(cbuffer *b) {
   b->mark = b->buf = 0;
@@ -53,7 +53,7 @@ void cbuffer_copy(cbuffer *b, const cbuffer *other) {
     cbuffer_dispose(b);
     cbuffer_alloc(b, other->bufsiz);
 #ifdef _WIN32
-    memcpy_s(b->buf, b->bufsiz, other->buf, other->bufsiz); 
+    memcpy_s(b->buf, b->bufsiz, other->buf, other->bufsiz);
 #else
     memcpy(b->buf, other->buf, b->bufsiz);
 #endif
@@ -70,7 +70,7 @@ void cbuffer_grow(cbuffer *b, size_t new_size) {
   {
     while(b->bufsiz < new_size){
       b->bufsiz *= 2;
-    } 
+    }
   }
   diff = b->mark - b->buf;
   b->buf = (char*) b->mm->prealloc(b->buf, b->bufsiz, b->mm);
@@ -159,7 +159,7 @@ void cbuffer_append(cbuffer *b, const char *text) {
 }
 
 void cbuffer_nappend(cbuffer *b, const char *data, size_t size) {
-  cbuffer_check(b, &(b->mark), size);  
+  cbuffer_check(b, &(b->mark), size);
 #ifdef _WIN32
   memcpy_s(b->mark, cbuffer_space_left(b), data, size);
 #else
