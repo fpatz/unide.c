@@ -84,29 +84,36 @@ void cbuffer_check(cbuffer *b, char **p, size_t bytes_needed) {
   }
 }
 
-static void _cbuffer_vformat(cbuffer *b, const char *format, va_list args) {
+static void _cbuffer_vformat(cbuffer *b, const char *format, va_list args_in) {
   int ret = 0;
-  size_t space_left;
+  size_t space_left = cbuffer_space_left(b);
 #ifdef _WIN32
   /* use the more secure vsnprintf_s here */
-  space_left = cbuffer_space_left(b);
-  while (0 > (ret = vsnprintf_s(b->mark, space_left, _TRUNCATE, format, args)) || ret >= (int)space_left) {
+  while (0 > (ret = vsnprintf_s(b->mark, space_left, _TRUNCATE, format, args_in)) || ret >= (int)space_left) {
     cbuffer_grow(b, 0);
     space_left = cbuffer_space_left(b);
   }
-  b->mark += ret;
-#else    
+#else
+  /* We possibly apply vsnprintf multiple times on args. But after calling
+     vsnprintf the value of args is undefined (see manpage to vsnprintf:
+     "Because they invoke the va_arg macro, the value of ap is undefined after
+     the call."), so we need to use a copy of args.
+     VC supports va_copy starting with vs2013 :-( */
+  va_list args;
+  va_copy(args, args_in);
   /* Consider different vsnprintf return values: old implementations
      return -1 if the output does not fit into the buffer, newer (C99)
      implementations return the number of characters that would have
      been written if the buffer had been big enough. Weird. */
-  space_left = cbuffer_space_left(b);
   while (0 > (ret = vsnprintf(b->mark, space_left, format, args)) || ret >= (int) space_left) {
+    va_end(args);
+    va_copy(args, args_in);
     cbuffer_grow(b, 0);
     space_left = cbuffer_space_left(b);
   }
-  b->mark += ret;
+  va_end(args);
 #endif
+  b->mark += ret;
 }
 
 void cbuffer_vformat(cbuffer *b, const char *format, va_list args) {
